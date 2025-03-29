@@ -1,0 +1,922 @@
+{
+  "Uuid": "d60664ee-f76b-4a76-9bc1-ed305ef1391a",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "Copy filters from a view template to another view template",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "eaabff91f0f543639c43635a8cd609af",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [
+        {
+          "Id": "ce89dcaef5094a4583b8065865715a93",
+          "Name": "_sourceView",
+          "Description": "_sourceView",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ed18448a13b24359a7e7bdbc2c5d6e55",
+          "Name": "",
+          "Description": "_sourceView",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Permite creación directa de código de DesignScript",
+      "Code": "/*The view that has the filters*/\n_sourceView: var[]..[];"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "7b11efbc6e754059a96dcac899b4c69c",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [
+        {
+          "Id": "2cf4a87635a14ad190402bd120481f50",
+          "Name": "_targetViews",
+          "Description": "_targetViews",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "56227df1581242be9badf535990d162f",
+          "Name": "",
+          "Description": "_targetViews",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Permite creación directa de código de DesignScript",
+      "Code": "/*Views to apply filters*/\n_targetViews: var[]..[];"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "# Developed by C2A Services - BIM Specialist Marcos Cisterna\r\n\r\nimport clr\r\n\r\n# Load Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\nimport Autodesk\r\n\r\n# Load document reference\r\nclr.AddReference(\"RevitServices\")\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndef toList(input):\r\n    \"\"\"Return iterable if available, a list of 1 otherwise\"\"\"\r\n    if hasattr(input, \"__iter__\") and not isinstance(input, str):  # Cambié basestring por str\r\n        return input\r\n    else:\r\n        return [input]\r\n\r\n# Documento activo\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# Obtener la vista fuente y las vistas objetivo\r\nsourceView = UnwrapElement(IN[0])\r\ntargetViews = toList(UnwrapElement(IN[1]))\r\n\r\n# Verificar si la vista fuente es válida\r\nif sourceView is None:\r\n    raise ValueError(\"La vista fuente (sourceView) no es válida. Asegúrate de que se ha proporcionado una vista válida.\")\r\n\r\n# Obtener los filtros de la vista fuente\r\nsourceViewFiltersId = sourceView.GetFilters()\r\nfilters = [doc.GetElement(id) for id in sourceViewFiltersId]\r\nfiltersOverrides = [sourceView.GetFilterOverrides(f.Id) for f in filters]\r\nfiltersVisibility = [sourceView.GetFilterVisibility(f.Id) for f in filters]\r\n\r\n# Listas para almacenar plantillas exitosas y vistas sin plantillas\r\nfList = []\r\neList = []\r\n\r\n# Iniciar la transacción\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nfor tV in targetViews:\r\n    try:\r\n        # Comprobar si la vista tiene una plantilla de vista aplicada\r\n        targetTemplateId = tV.ViewTemplateId\r\n        if targetTemplateId != ElementId.InvalidElementId:\r\n            # Si la vista tiene una plantilla, trabajar directamente con la plantilla\r\n            targetTemplate = doc.GetElement(targetTemplateId)\r\n            if targetTemplate is not None:\r\n                # Aplicar filtros a la plantilla de vista\r\n                for f, override, visibility in zip(filters, filtersOverrides, filtersVisibility):\r\n                    if not targetTemplate.IsFilterApplied(f.Id):\r\n                        targetTemplate.AddFilter(f.Id)\r\n                    targetTemplate.SetFilterOverrides(f.Id, override)\r\n                    targetTemplate.SetFilterVisibility(f.Id, visibility)\r\n                \r\n                # Añadir la plantilla a la lista de éxito\r\n                fList.append(targetTemplate)\r\n        else:\r\n            # Si la vista no tiene plantilla, añadir a la lista de error\r\n            eList.append(tV)\r\n    except Exception as e:\r\n        # Log o print de error para depuración\r\n        import traceback\r\n        print(\"Error applying filters to view template for view {}: {}\".format(tV.Id, traceback.format_exc()))\r\n        eList.append(tV)\r\n\r\n# Finalizar la transacción\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# Salida\r\nOUT = [fList, eList]\r\n",
+      "Engine": "IronPython2",
+      "EngineName": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "49fd8fa5d678452e99d98103418055c9",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "1012a61353a046199da8285be23c881b",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "6fbb37ec18074872b6ae85b57a2bd1fa",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ad566bb3ea40442e813a24f6a749bd8d",
+          "Name": "OUT",
+          "Description": "Resultado de la secuencia de comandos de Python",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Ejecuta una secuencia de comandos de Python incrustada."
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "1cd7c94dd49f455db8fa3cc660d556bc",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [
+        {
+          "Id": "ed78301120844cbc9706227119f7ba8c",
+          "Name": "l",
+          "Description": "l",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ee8041b3709a40adbf4746b0c08159f4",
+          "Name": "",
+          "Description": "Valor de la expresión en la línea 1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "5f2cb7089fe54418aa0b4cdfeb6a41c2",
+          "Name": "",
+          "Description": "Valor de la expresión en la línea 2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Permite creación directa de código de DesignScript",
+      "Code": "l[0];\nl[1];"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "685d5dbfd1844466ae2d121a29d652c1",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [
+        {
+          "Id": "f9c083e7b65b4e43bb707547b6532c15",
+          "Name": "_views",
+          "Description": "_views",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "51d0de06a64e494e9421f35439391a4a",
+          "Name": "",
+          "Description": "Valor de la expresión en la línea 1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Permite creación directa de código de DesignScript",
+      "Code": "_views;"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "d1f12d54bc134c1a9e86d835ff82b7e8",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [
+        {
+          "Id": "b5b9948f066d4b0f8973d174744405c6",
+          "Name": "_errorviews",
+          "Description": "_errorviews",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "1b1442b7b4d4461998743363e88e654d",
+          "Name": "",
+          "Description": "Valor de la expresión en la línea 1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Permite creación directa de código de DesignScript",
+      "Code": "_errorviews;"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.Views, DSRevitNodesUI",
+      "SelectedIndex": 1736,
+      "SelectedString": "TECHNICAL ROOM A - ALL SYSTEMS - FLOOR PLAN",
+      "Id": "c8817e85bc6b4cbd82cf61755332ccb2",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "72fb0f1176f04570b504a1b7e8fe6738",
+          "Name": "Views",
+          "Description": "Views seleccionado",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Todas las vistas disponibles del documento actual"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.Views, DSRevitNodesUI",
+      "SelectedIndex": 1738,
+      "SelectedString": "TECHNICAL ROOM A - ALL SYSTEMS - FLOOR PLAN Copia 2",
+      "Id": "f390fe4a1e744fb5a668a711ed458001",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "02074966c4c9447cb4d496cc3b34b58f",
+          "Name": "Views",
+          "Description": "Views seleccionado",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Todas las vistas disponibles del documento actual"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 50.0,
+      "WatchHeight": 38.0,
+      "Id": "868d6bde12934c54ab87722224c01932",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "d025d068aa4143c69688c22c1e1edcdb",
+          "Name": "",
+          "Description": "Nodo desde el que se mostrará la salida",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "1dc0c850ba9545f78a10bfc0a7557577",
+          "Name": "",
+          "Description": "Salida del nodo",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualice la salida del nodo."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 50.0,
+      "WatchHeight": 38.0,
+      "Id": "711b824f91494932a789c85860842d76",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "9ccba8e4ee5944c3b35ad8e3e67c804d",
+          "Name": "",
+          "Description": "Nodo desde el que se mostrará la salida",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "98a88fdada3d445a8a4b7cd34919f787",
+          "Name": "",
+          "Description": "Salida del nodo",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualice la salida del nodo."
+    },
+    {
+      "ConcreteType": "CoreNodeModels.CreateList, CoreNodeModels",
+      "VariableInputPorts": true,
+      "Id": "34c701774aa641e5be2145dfc22f66e4",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "fd819af1bc7a4100bc35b0414b24e777",
+          "Name": "item0",
+          "Description": "Índice de elemento núm.0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "406e7db1a09c4b9785a4aa219d2404c1",
+          "Name": "item1",
+          "Description": "Índice de elemento núm.1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fe81fed630d94abb9b811502e9755b48",
+          "Name": "item2",
+          "Description": "Índice de elemento núm.2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "11c61c7550fb412085ddc8d35c6e43d6",
+          "Name": "item3",
+          "Description": "Índice de elemento núm.3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "9cd45cc884dc4ee180992f51c852bb77",
+          "Name": "list",
+          "Description": "Una lista (tipo: var[]..[])",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Crea una nueva lista a partir de las entradas especificadas."
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.Views, DSRevitNodesUI",
+      "SelectedIndex": 1737,
+      "SelectedString": "TECHNICAL ROOM A - ALL SYSTEMS - FLOOR PLAN Copia 1",
+      "Id": "ce7595a757384d74813fc78f6112c4b3",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "c02906cf44d3477384a2a8114958d2c3",
+          "Name": "Views",
+          "Description": "Views seleccionado",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Todas las vistas disponibles del documento actual"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.Views, DSRevitNodesUI",
+      "SelectedIndex": 1738,
+      "SelectedString": "TECHNICAL ROOM A - ALL SYSTEMS - FLOOR PLAN Copia 2",
+      "Id": "98887e35d5d04d21ac784f0ef268febb",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "28b6de07afcc4d4cb839fe369fff047a",
+          "Name": "Views",
+          "Description": "Views seleccionado",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Todas las vistas disponibles del documento actual"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.Views, DSRevitNodesUI",
+      "SelectedIndex": 1739,
+      "SelectedString": "TECHNICAL ROOM A - ALL SYSTEMS - FLOOR PLAN Copia 3",
+      "Id": "b8fed2e042114854ae156fc1a2d5e727",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f3c5e672505d47429a5debde19af596d",
+          "Name": "Views",
+          "Description": "Views seleccionado",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Todas las vistas disponibles del documento actual"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.Views, DSRevitNodesUI",
+      "SelectedIndex": 1740,
+      "SelectedString": "TECHNICAL ROOM A - ALL SYSTEMS - FLOOR PLAN Copia 4",
+      "Id": "115fc8598c3c4338b095b6113e82f227",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "49368eb8ff22493891e0fa281b088c76",
+          "Name": "Views",
+          "Description": "Views seleccionado",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Todas las vistas disponibles del documento actual"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "ed18448a13b24359a7e7bdbc2c5d6e55",
+      "End": "1012a61353a046199da8285be23c881b",
+      "Id": "51e73d87f589453481e3042e4e4c3904",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "56227df1581242be9badf535990d162f",
+      "End": "6fbb37ec18074872b6ae85b57a2bd1fa",
+      "Id": "4abf02aae5144058b98b5dca173ff1bd",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "ad566bb3ea40442e813a24f6a749bd8d",
+      "End": "ed78301120844cbc9706227119f7ba8c",
+      "Id": "0de5d31f15954e2a92288868461414cf",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "ee8041b3709a40adbf4746b0c08159f4",
+      "End": "f9c083e7b65b4e43bb707547b6532c15",
+      "Id": "ca29c15076bb47d289fa0fbaa1563f0d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "5f2cb7089fe54418aa0b4cdfeb6a41c2",
+      "End": "b5b9948f066d4b0f8973d174744405c6",
+      "Id": "94c2d97e4ee2417b90915da6ca5356da",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "51d0de06a64e494e9421f35439391a4a",
+      "End": "d025d068aa4143c69688c22c1e1edcdb",
+      "Id": "6bcf52e3aeaa4e748d94c62385de2123",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "1b1442b7b4d4461998743363e88e654d",
+      "End": "9ccba8e4ee5944c3b35ad8e3e67c804d",
+      "Id": "b725d3f7cba14e4a9a0d02007f9de02f",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "72fb0f1176f04570b504a1b7e8fe6738",
+      "End": "ce89dcaef5094a4583b8065865715a93",
+      "Id": "2c17662861a9447fba36b126e264449d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "c02906cf44d3477384a2a8114958d2c3",
+      "End": "fd819af1bc7a4100bc35b0414b24e777",
+      "Id": "4286e6beff7f4f1cbff37d9df7fdbad5",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "28b6de07afcc4d4cb839fe369fff047a",
+      "End": "406e7db1a09c4b9785a4aa219d2404c1",
+      "Id": "51dcf777bc814c6e8abfc4afad15e068",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f3c5e672505d47429a5debde19af596d",
+      "End": "fe81fed630d94abb9b811502e9755b48",
+      "Id": "734badc6f599426691e53cfd5d7ecc00",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "49368eb8ff22493891e0fa281b088c76",
+      "End": "11c61c7550fb412085ddc8d35c6e43d6",
+      "Id": "9dc5cecec5a34a709d640cea81399250",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Propiedades",
+      "Version": "2.19",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "6.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "Ninguno",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.19.3.6394",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "_Vista preliminar en segundo plano",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "eaabff91f0f543639c43635a8cd609af",
+        "Name": "Code Block",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 895.71916261965725,
+        "Y": 362.06096759160374
+      },
+      {
+        "Id": "7b11efbc6e754059a96dcac899b4c69c",
+        "Name": "Code Block",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 910.83167155522051,
+        "Y": 773.02677809190538
+      },
+      {
+        "Id": "49fd8fa5d678452e99d98103418055c9",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1650.4860186740648,
+        "Y": 565.59091085628791
+      },
+      {
+        "Id": "1cd7c94dd49f455db8fa3cc660d556bc",
+        "Name": "Code Block",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1904.0948595327043,
+        "Y": 573.95915359682067
+      },
+      {
+        "Id": "685d5dbfd1844466ae2d121a29d652c1",
+        "Name": "Code Block",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 2241.4074541717368,
+        "Y": 344.45748257732788
+      },
+      {
+        "Id": "d1f12d54bc134c1a9e86d835ff82b7e8",
+        "Name": "Code Block",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 2244.7727034559507,
+        "Y": 797.04901298446578
+      },
+      {
+        "Id": "c8817e85bc6b4cbd82cf61755332ccb2",
+        "Name": "Select source view",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 260.14077956693905,
+        "Y": 363.82677406084912
+      },
+      {
+        "Id": "f390fe4a1e744fb5a668a711ed458001",
+        "Name": "Select target view",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 241.68472488226212,
+        "Y": 777.20191725909046
+      },
+      {
+        "Id": "868d6bde12934c54ab87722224c01932",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 2577.5014769753625,
+        "Y": 336.66469927977914
+      },
+      {
+        "Id": "711b824f91494932a789c85860842d76",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 2597.8122133598308,
+        "Y": 795.39071260046239
+      },
+      {
+        "Id": "34c701774aa641e5be2145dfc22f66e4",
+        "Name": "List Create",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 612.183462507332,
+        "Y": 1131.984084758265
+      },
+      {
+        "Id": "ce7595a757384d74813fc78f6112c4b3",
+        "Name": "Views",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -42.209603694740395,
+        "Y": 1053.1918140256478
+      },
+      {
+        "Id": "98887e35d5d04d21ac784f0ef268febb",
+        "Name": "Views",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -43.822998015409439,
+        "Y": 1183.1825990089478
+      },
+      {
+        "Id": "b8fed2e042114854ae156fc1a2d5e727",
+        "Name": "Views",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -42.618524300010449,
+        "Y": 1310.1077840600701
+      },
+      {
+        "Id": "115fc8598c3c4338b095b6113e82f227",
+        "Name": "Views",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -42.777972468378493,
+        "Y": 1438.050693013256
+      }
+    ],
+    "Annotations": [
+      {
+        "Id": "8bc5c2a91a854465b612c08b9f9df8b9",
+        "Title": "View that was selected",
+        "DescriptionText": "Descripción <Haga doble clic aquí para editar la descripción del grupo>",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "eaabff91f0f543639c43635a8cd609af"
+        ],
+        "HasNestedGroups": false,
+        "Left": 885.71916261965725,
+        "Top": 289.06096759160374,
+        "Width": 456.0,
+        "Height": 215.0,
+        "FontSize": 36.0,
+        "GroupStyleId": "bc688959-ce34-4bf5-90f8-6ddd23f80989",
+        "InitialTop": 362.06096759160374,
+        "InitialHeight": 172.00000000000006,
+        "TextblockHeight": 63.0,
+        "Background": "#FFA4E1FF"
+      },
+      {
+        "Id": "9d8ba3bb26c541d0afb30b4d662baec7",
+        "Title": "View that was selected",
+        "DescriptionText": "Descripción <Haga doble clic aquí para editar la descripción del grupo>",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "7b11efbc6e754059a96dcac899b4c69c"
+        ],
+        "HasNestedGroups": false,
+        "Left": 900.83167155522051,
+        "Top": 691.02677809190538,
+        "Width": 404.0,
+        "Height": 224.0,
+        "FontSize": 36.0,
+        "GroupStyleId": "bc688959-ce34-4bf5-90f8-6ddd23f80989",
+        "InitialTop": 773.02677809190538,
+        "InitialHeight": 172.0,
+        "TextblockHeight": 72.0,
+        "Background": "#FFA4E1FF"
+      },
+      {
+        "Id": "174b5a8cedcf400b8b57284efaeb9310",
+        "Title": "01. Select source view",
+        "DescriptionText": "Descripción <Haga doble clic aquí para editar la descripción del grupo>",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "c8817e85bc6b4cbd82cf61755332ccb2"
+        ],
+        "HasNestedGroups": false,
+        "Left": 250.14077956693905,
+        "Top": 290.82677406084912,
+        "Width": 494.0,
+        "Height": 205.0,
+        "FontSize": 36.0,
+        "GroupStyleId": "883066aa-1fe2-44a4-9bd1-c3df86bfe9f6",
+        "InitialTop": 363.82677406084912,
+        "InitialHeight": 162.0,
+        "TextblockHeight": 63.0,
+        "Background": "#FFFFB8D8"
+      },
+      {
+        "Id": "292b2c9b49ae4c64a30d870e8aeb632e",
+        "Title": "02. Select target view",
+        "DescriptionText": "Descripción <Haga doble clic aquí para editar la descripción del grupo>",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "f390fe4a1e744fb5a668a711ed458001"
+        ],
+        "HasNestedGroups": false,
+        "Left": 231.68472488226212,
+        "Top": 704.20191725909046,
+        "Width": 552.0,
+        "Height": 205.0,
+        "FontSize": 36.0,
+        "GroupStyleId": "883066aa-1fe2-44a4-9bd1-c3df86bfe9f6",
+        "InitialTop": 777.20191725909046,
+        "InitialHeight": 162.0,
+        "TextblockHeight": 63.0,
+        "Background": "#FFFFB8D8"
+      },
+      {
+        "Id": "ddaed8988d3b497cbb0ea9e7ecdb5fa9",
+        "Title": "04. Views in which was applied changes",
+        "DescriptionText": "Descripción <Haga doble clic aquí para editar la descripción del grupo>",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "685d5dbfd1844466ae2d121a29d652c1",
+          "868d6bde12934c54ab87722224c01932"
+        ],
+        "HasNestedGroups": false,
+        "Left": 2231.4074541717368,
+        "Top": 220.66469927977914,
+        "Width": 483.09402280362565,
+        "Height": 255.79278329754874,
+        "FontSize": 36.0,
+        "GroupStyleId": "07655dc1-2d65-4fed-8d6a-37235d3e3a8d",
+        "InitialTop": 336.66469927977914,
+        "InitialHeight": 328.0,
+        "TextblockHeight": 106.0,
+        "Background": "#FFFFC999"
+      },
+      {
+        "Id": "8b9195062cc64ca5915fce03f0650b00",
+        "Title": "05. Errors in views",
+        "DescriptionText": "Descripción <Haga doble clic aquí para editar la descripción del grupo>",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "d1f12d54bc134c1a9e86d835ff82b7e8",
+          "711b824f91494932a789c85860842d76"
+        ],
+        "HasNestedGroups": false,
+        "Left": 2234.7727034559507,
+        "Top": 722.39071260046239,
+        "Width": 500.03950990388012,
+        "Height": 209.0,
+        "FontSize": 36.0,
+        "GroupStyleId": "07655dc1-2d65-4fed-8d6a-37235d3e3a8d",
+        "InitialTop": 795.39071260046239,
+        "InitialHeight": 166.0,
+        "TextblockHeight": 63.0,
+        "Background": "#FFFFC999"
+      },
+      {
+        "Id": "b0becb9835604466909ec9ef2b2896e6",
+        "Title": "03. Engine",
+        "DescriptionText": "Descripción <Haga doble clic aquí para editar la descripción del grupo>",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "49fd8fa5d678452e99d98103418055c9",
+          "1cd7c94dd49f455db8fa3cc660d556bc"
+        ],
+        "HasNestedGroups": false,
+        "Left": 1640.4860186740648,
+        "Top": 483.59091085628791,
+        "Width": 427.60884085863972,
+        "Height": 256.0,
+        "FontSize": 36.0,
+        "GroupStyleId": "4d68be4a-a04d-4945-9dd5-cdf61079d790",
+        "InitialTop": 565.59091085628791,
+        "InitialHeight": 192.0,
+        "TextblockHeight": 72.0,
+        "Background": "#FFB9F9E1"
+      },
+      {
+        "Id": "55589b62891444ea988d00e50bf0f170",
+        "Title": "Optional: Select list of views",
+        "DescriptionText": "Descripción <Haga doble clic aquí para editar la descripción del grupo>",
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [
+          "34c701774aa641e5be2145dfc22f66e4",
+          "ce7595a757384d74813fc78f6112c4b3",
+          "98887e35d5d04d21ac784f0ef268febb",
+          "b8fed2e042114854ae156fc1a2d5e727",
+          "115fc8598c3c4338b095b6113e82f227"
+        ],
+        "HasNestedGroups": false,
+        "Left": -53.822998015409439,
+        "Top": 980.19181402564777,
+        "Width": 836.00646052274146,
+        "Height": 589.85887898760825,
+        "FontSize": 36.0,
+        "GroupStyleId": "00000000-0000-0000-0000-000000000000",
+        "InitialTop": 1053.1918140256478,
+        "InitialHeight": 227.0,
+        "TextblockHeight": 63.0,
+        "Background": "#FFC1D676"
+      }
+    ],
+    "X": 159.89709686791832,
+    "Y": -2.7437178604596113,
+    "Zoom": 0.49351826365032475
+  }
+}
