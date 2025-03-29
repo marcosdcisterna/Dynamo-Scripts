@@ -1,2 +1,0 @@
-# Dynamo-Scripts
-Dynamo Scripts
